@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Neon Miner — Кликер+</title>
+<!-- Подключение SDK Adsgram -->
+<script src="https://sad.adsgram.ai/js/adsgram.js"></script>
 <style>
   :root{
     --bg1:#0b0e1a;
@@ -144,6 +146,11 @@
   .ach-name{font-weight:800; font-size:13px;}
   .ach-desc{font-size:11px; color:#93a3cc;}
 
+  /* Стили для блока наград */
+  .reward-box{background:var(--card); border:1px solid var(--card-border); border-radius:14px; padding:16px; margin-top:10px; text-align:center;}
+  .reward-box h3{margin:0 0 8px 0; font-size:16px; color:var(--neon-cyan);}
+  .reward-box p{font-size:12px; color:#93a3cc; margin-bottom:14px;}
+
   .toast{position:fixed; top:14px; left:50%; transform:translateX(-50%) translateY(-20px); z-index:50;
     background:linear-gradient(90deg,var(--neon-yellow),var(--neon-green)); color:#0a1a10; font-weight:800;
     padding:10px 20px; border-radius:14px; font-size:13px; opacity:0; transition:all .3s ease; box-shadow:0 6px 20px rgba(0,0,0,0.4);
@@ -198,6 +205,7 @@
       <button class="tab-btn active" data-tab="upgrades">⛏️ Улучшения</button>
       <button class="tab-btn" data-tab="prestige">🔁 Престиж</button>
       <button class="tab-btn" data-tab="achievements">🏆 Награды</button>
+      <button class="tab-btn" data-tab="rewards">🎁 Бонус</button>
     </div>
     <div class="panel-wrap" id="panel-wrap"></div>
   </div>
@@ -237,6 +245,31 @@
   }
   function saveState(){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify(state)); }catch(e){} }
   let state = loadState();
+
+  /* ---------------- ADSGRAM INIT ---------------- */
+  const adController = window.Adsgram ? window.Adsgram.init({ blockId: "46297" }) : null;
+
+  function watchAdForReward() {
+    if (!adController) {
+      showToast("Реклама доступна только в Telegram Mini App");
+      return;
+    }
+    adController.show().then((result) => {
+      if (result.done) {
+        const rewardAmount = 500;
+        state.coins += rewardAmount;
+        state.totalCoinsEarned += rewardAmount;
+        sessionEarned += rewardAmount;
+        saveState();
+        renderTopStats();
+        showToast("Награда получена! +500 💰");
+        playTone(880, 0.2, "triangle", 0.08);
+      }
+    }).catch((err) => {
+      console.log("Ad error:", err);
+      showToast("Реклама не была досмотрена до конца");
+    });
+  }
 
   /* ---------------- UPGRADES ---------------- */
   const upgrades = [
@@ -476,7 +509,8 @@
   function renderActiveTab(){
     if(activeTab==="upgrades") renderUpgradesTab();
     else if(activeTab==="prestige") renderPrestigeTab();
-    else renderAchievementsTab();
+    else if(activeTab==="achievements") renderAchievementsTab();
+    else if(activeTab==="rewards") renderRewardsTab();
   }
 
   function renderUpgradesTab(){
@@ -543,6 +577,23 @@
       grid.appendChild(card);
     });
     panelWrap.innerHTML = ""; panelWrap.appendChild(grid);
+  }
+
+  function renderRewardsTab(){
+    const box = document.createElement("div");
+    box.className = "reward-box";
+    box.innerHTML =
+      '<h3>🎁 Бесплатные монеты</h3>' +
+      '<p>Посмотри короткий видеоролик и мгновенно получи +500 монет на свой баланс!</p>';
+    const btn = document.createElement("button");
+    btn.className = "neon-btn";
+    btn.style.width = "100%";
+    btn.style.padding = "12px";
+    btn.style.fontSize = "14px";
+    btn.textContent = "🎬 СМОТРЕТЬ РЕКЛАМУ (+500 💰)";
+    btn.addEventListener("click", watchAdForReward);
+    box.appendChild(btn);
+    panelWrap.innerHTML = ""; panelWrap.appendChild(box);
   }
 
   /* ---------------- EFFECTS ---------------- */
