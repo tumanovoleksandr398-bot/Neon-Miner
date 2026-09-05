@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Neon Miner — Кликер+</title>
+<style>
+  :root{
+    --bg1:#0b0e1a;
+    --neon-cyan:#00f0ff;
+    --neon-pink:#ff2e97;
+    --neon-purple:#a855f7;
+    --neon-yellow:#ffd23f;
+    --neon-green:#39ff88;
+    --neon-red:#ff4d4d;
+    --text:#eaf6ff;
+    --card:#171d33;
+    --card-border:#2a3357;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; -webkit-user-select:none;}
+  html,body{margin:0; padding:0; width:100%; height:100%;
+    background: radial-gradient(1200px 800px at 50% -10%, #1c2444 0%, var(--bg1) 60%);
+    color:var(--text); font-family:'Segoe UI','Trebuchet MS',Arial,sans-serif; overflow:hidden;}
+  #app{position:relative; width:100vw; height:100vh; height:100dvh; overflow:hidden;}
+  .screen{display:none; position:absolute; inset:0; flex-direction:column; align-items:center; justify-content:center; padding:20px; text-align:center;}
+  .screen.active{display:flex;}
+
+  /* START */
+  .logo{font-size:clamp(34px,9vw,60px); font-weight:900; letter-spacing:3px;
+    background:linear-gradient(90deg,var(--neon-cyan),var(--neon-purple),var(--neon-pink));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    filter:drop-shadow(0 0 18px rgba(168,85,247,0.55)); margin:0; animation:floaty 3.5s ease-in-out infinite;}
+  .subtitle{color:#9db0d8; font-size:clamp(12px,3vw,16px); margin-top:8px; margin-bottom:30px; max-width:480px;}
+  @keyframes floaty{0%,100%{transform:translateY(0);} 50%{transform:translateY(-8px);}}
+  .gem-preview{width:110px; height:110px; margin-bottom:30px;
+    clip-path:polygon(50% 0%, 90% 30%, 78% 100%, 22% 100%, 10% 30%);
+    background:linear-gradient(160deg,var(--neon-cyan),var(--neon-purple) 60%, var(--neon-pink));
+    box-shadow:0 0 40px rgba(0,240,255,0.6), 0 0 80px rgba(168,85,247,0.4); animation:spinGlow 5s linear infinite;}
+  @keyframes spinGlow{0%,100%{filter:hue-rotate(0deg) brightness(1);} 50%{filter:hue-rotate(35deg) brightness(1.15);}}
+  .neon-btn{border:none; cursor:pointer; font-family:inherit; font-weight:800; letter-spacing:1px;
+    padding:16px 44px; font-size:clamp(15px,4vw,21px); border-radius:50px; color:#03101a;
+    background:linear-gradient(90deg,var(--neon-cyan),var(--neon-green));
+    box-shadow:0 0 20px rgba(0,240,255,0.55), 0 6px 0 rgba(0,0,0,0.35);
+    transition:transform .12s ease, box-shadow .12s ease;}
+  .neon-btn:active{transform:translateY(4px) scale(0.98); box-shadow:0 0 14px rgba(0,240,255,0.55), 0 2px 0 rgba(0,0,0,0.35);}
+  .neon-btn.pink{background:linear-gradient(90deg,var(--neon-pink),var(--neon-purple));
+    box-shadow:0 0 20px rgba(255,46,151,0.55), 0 6px 0 rgba(0,0,0,0.35); color:#1a0313;}
+  .neon-btn:disabled{opacity:0.35; cursor:not-allowed; filter:grayscale(0.6);}
+  .reset-link{margin-top:18px; color:#5c6c99; font-size:12px; text-decoration:underline; cursor:pointer;}
+
+  /* GAME */
+  #screen-game{justify-content:flex-start; padding:0;}
+  .topbar{width:100%; display:flex; justify-content:space-between; align-items:center; padding:10px 12px 6px 12px; gap:8px; flex-wrap:wrap;}
+  .stat-pill{background:var(--card); border:1px solid var(--card-border); border-radius:14px; padding:6px 12px;
+    display:flex; align-items:center; gap:6px; font-weight:700; font-size:clamp(12px,3.2vw,15px);}
+  .coin-pill{color:var(--neon-yellow);}
+  .income-pill{color:var(--neon-green); font-size:11px;}
+  .combo-pill{color:var(--neon-pink); font-size:12px; transition:transform .15s ease; opacity:0.4;}
+  .combo-pill.active{opacity:1; transform:scale(1.12);}
+
+  .energy-wrap{width:100%; padding:0 12px; margin-top:2px;}
+  .energy-bar-bg{width:100%; height:12px; border-radius:10px; background:#0e1326; border:1px solid var(--card-border); overflow:hidden;}
+  .energy-bar-fill{height:100%; width:100%; background:linear-gradient(90deg,var(--neon-purple),var(--neon-cyan));
+    transition:width .15s ease; box-shadow:0 0 12px rgba(0,240,255,0.6);}
+  .energy-label{font-size:10px; color:#7f8fc0; margin-top:3px; text-align:right;}
+
+  .click-zone{flex:1; width:100%; display:flex; align-items:center; justify-content:center; position:relative; min-height:0; overflow:hidden;}
+  .click-zone.shake{animation:shake .35s ease;}
+  @keyframes shake{
+    0%,100%{transform:translate(0,0);} 20%{transform:translate(-8px,3px);} 40%{transform:translate(7px,-4px);}
+    60%{transform:translate(-6px,-2px);} 80%{transform:translate(5px,3px);}
+  }
+  #particle-layer, #orb-layer{position:absolute; inset:0; pointer-events:none; overflow:hidden;}
+  #orb-layer{z-index:5;}
+
+  .golden-banner{position:absolute; top:6px; left:50%; transform:translateX(-50%);
+    background:linear-gradient(90deg,#ffd23f,#ff9d00); color:#2a1600; font-weight:900; font-size:13px;
+    padding:6px 16px; border-radius:20px; box-shadow:0 0 20px rgba(255,180,0,0.7);
+    opacity:0; transition:opacity .2s ease; pointer-events:none; z-index:20; white-space:nowrap;}
+  .golden-banner.show{opacity:1; animation:goldPulse .6s ease-in-out infinite alternate;}
+  @keyframes goldPulse{from{transform:translateX(-50%) scale(1);} to{transform:translateX(-50%) scale(1.06);}}
+
+  .charge-ring{position:absolute; width:min(38vw,200px); height:min(38vw,200px); border-radius:50%;
+    border:3px solid var(--neon-cyan); box-shadow:0 0 25px var(--neon-cyan); opacity:0; pointer-events:none;
+    transform:scale(1);}
+
+  .gem{width:min(38vw,200px); height:min(38vw,200px); position:relative; z-index:2;
+    clip-path:polygon(50% 0%, 90% 30%, 78% 100%, 22% 100%, 10% 30%);
+    background:linear-gradient(160deg,var(--neon-cyan),var(--neon-purple) 55%, var(--neon-pink));
+    box-shadow:0 0 45px rgba(0,240,255,0.55), 0 0 90px rgba(168,85,247,0.35);
+    cursor:pointer; transition:filter .08s ease; animation:pulse 2.4s ease-in-out infinite; touch-action:none;}
+  @keyframes pulse{0%,100%{transform:scale(1);} 50%{transform:scale(1.035);}}
+  .gem.golden{background:linear-gradient(160deg,#fff2a8,#ffd23f 45%, #ff9d00);
+    box-shadow:0 0 60px rgba(255,180,0,0.85), 0 0 110px rgba(255,157,0,0.5); animation:pulse 0.9s ease-in-out infinite;}
+
+  .float-text{position:absolute; font-weight:800; font-size:clamp(14px,4vw,20px); color:var(--neon-yellow);
+    text-shadow:0 0 8px rgba(255,210,63,0.8); pointer-events:none; animation:floatUp 0.9s ease-out forwards; white-space:nowrap; z-index:10;}
+  .float-text.crit{color:var(--neon-pink); font-size:clamp(16px,5vw,24px); text-shadow:0 0 10px rgba(255,46,151,0.9);}
+  .float-text.bad{color:var(--neon-red); text-shadow:0 0 8px rgba(255,77,77,0.9);}
+  .float-text.gold{color:#fff2a8; text-shadow:0 0 12px rgba(255,210,63,1);}
+  @keyframes floatUp{0%{opacity:1; transform:translate(-50%,-50%) translateY(0);} 100%{opacity:0; transform:translate(-50%,-50%) translateY(-70px);}}
+
+  .particle{position:absolute; width:6px; height:6px; border-radius:50%; pointer-events:none; animation:particleFly 0.7s ease-out forwards;}
+  @keyframes particleFly{0%{opacity:1; transform:translate(0,0) scale(1);} 100%{opacity:0; transform:var(--dest) scale(0.3);}}
+
+  .orb{position:absolute; width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-size:20px; pointer-events:auto; cursor:pointer; animation:orbPop .25s ease;}
+  @keyframes orbPop{from{transform:scale(0);} to{transform:scale(1);}}
+  .orb.bonus{background:radial-gradient(circle at 35% 30%, #d9fff0, var(--neon-green) 70%); box-shadow:0 0 18px rgba(57,255,136,0.8);}
+  .orb.bomb{background:radial-gradient(circle at 35% 30%, #ffd9d9, var(--neon-red) 70%); box-shadow:0 0 18px rgba(255,77,77,0.8);}
+  .orb.fading{opacity:0; transform:scale(0.5); transition:opacity .25s ease, transform .25s ease;}
+
+  /* TABS */
+  .tabs{display:flex; width:100%; gap:6px; padding:8px 12px 0 12px;}
+  .tab-btn{flex:1; padding:9px 4px; font-size:clamp(11px,3vw,13px); font-weight:800; border-radius:12px 12px 0 0;
+    background:#10152a; border:1px solid var(--card-border); border-bottom:none; color:#7f8fc0; cursor:pointer;}
+  .tab-btn.active{color:var(--text); background:var(--card); box-shadow:0 -4px 12px rgba(0,240,255,0.08);}
+  .panel-wrap{width:100%; padding:0 12px 16px 12px; max-height:34vh; overflow-y:auto;}
+  @media (min-width:700px){.panel-wrap{max-height:30vh;}}
+
+  .upgrades-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:10px; padding-top:10px;}
+  @media (min-width:700px){.upgrades-grid{grid-template-columns:repeat(4,1fr);}}
+  .upg-card{background:var(--card); border:1px solid var(--card-border); border-radius:14px; padding:10px;
+    display:flex; flex-direction:column; gap:4px; text-align:left; cursor:pointer; transition:transform .1s ease;}
+  .upg-card:active{transform:scale(0.96);}
+  .upg-card.affordable{border-color:var(--neon-green); box-shadow:0 0 14px rgba(57,255,136,0.25);}
+  .upg-title{font-weight:800; font-size:13px; display:flex; justify-content:space-between; align-items:center;}
+  .upg-lvl{font-size:11px; color:#8ea0d0; background:#0e1326; padding:1px 7px; border-radius:8px;}
+  .upg-desc{font-size:11px; color:#93a3cc;}
+  .upg-cost{font-size:13px; font-weight:800; color:var(--neon-yellow); margin-top:2px;}
+  .upg-cost.cant{color:#ff6b6b;}
+
+  .prestige-box{background:var(--card); border:1px solid var(--card-border); border-radius:14px; padding:16px; margin-top:10px; text-align:left;}
+  .prestige-row{display:flex; justify-content:space-between; font-size:13px; margin:6px 0; color:#c3cdea;}
+  .prestige-row b{color:var(--neon-purple);}
+  .prestige-bar-bg{width:100%; height:10px; border-radius:8px; background:#0e1326; border:1px solid var(--card-border); overflow:hidden; margin:8px 0;}
+  .prestige-bar-fill{height:100%; background:linear-gradient(90deg,var(--neon-pink),var(--neon-purple)); transition:width .2s ease;}
+
+  .ach-grid{display:flex; flex-direction:column; gap:8px; padding-top:10px;}
+  .ach-card{display:flex; align-items:center; gap:10px; background:var(--card); border:1px solid var(--card-border);
+    border-radius:12px; padding:8px 12px; text-align:left; opacity:0.45;}
+  .ach-card.unlocked{opacity:1; border-color:var(--neon-yellow); box-shadow:0 0 12px rgba(255,210,63,0.2);}
+  .ach-icon{font-size:22px; width:30px; text-align:center;}
+  .ach-name{font-weight:800; font-size:13px;}
+  .ach-desc{font-size:11px; color:#93a3cc;}
+
+  .toast{position:fixed; top:14px; left:50%; transform:translateX(-50%) translateY(-20px); z-index:50;
+    background:linear-gradient(90deg,var(--neon-yellow),var(--neon-green)); color:#0a1a10; font-weight:800;
+    padding:10px 20px; border-radius:14px; font-size:13px; opacity:0; transition:all .3s ease; box-shadow:0 6px 20px rgba(0,0,0,0.4);
+    max-width:88vw; text-align:center;}
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+
+  /* GAME OVER */
+  .go-title{font-size:clamp(26px,7vw,40px); font-weight:900; color:var(--neon-pink); text-shadow:0 0 20px rgba(255,46,151,0.7); margin-bottom:8px;}
+  .go-box{background:var(--card); border:1px solid var(--card-border); border-radius:18px; padding:20px 28px; margin:16px 0 26px 0; min-width:240px;}
+  .go-row{display:flex; justify-content:space-between; gap:26px; font-size:15px; margin:7px 0;}
+  .go-row b{color:var(--neon-cyan);}
+  .go-row.record b{color:var(--neon-yellow);}
+  .new-record{color:var(--neon-green); font-weight:800; font-size:13px; margin-top:-6px; margin-bottom:14px; animation:blink 1s ease-in-out infinite;}
+  @keyframes blink{0%,100%{opacity:1;} 50%{opacity:0.4;}}
+
+  ::-webkit-scrollbar{width:6px; height:6px;}
+  ::-webkit-scrollbar-thumb{background:#2a3357; border-radius:4px;}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div id="screen-start" class="screen active">
+    <h1 class="logo">NEON MINER</h1>
+    <p class="subtitle">Держи кристалл для мощного удара, лови золотую лихорадку, собирай бонусы, обходи бомбы и качай империю добычи!</p>
+    <div class="gem-preview"></div>
+    <button class="neon-btn" id="btn-play">▶ ИГРАТЬ</button>
+    <div class="reset-link" id="btn-hard-reset">Сбросить весь прогресс</div>
+  </div>
+
+  <div id="screen-game" class="screen">
+    <div class="topbar">
+      <div class="stat-pill coin-pill">💰 <span id="coin-count">0</span></div>
+      <div class="stat-pill">👆 <span id="click-power-val">1</span></div>
+      <div class="stat-pill income-pill">⚙️ <span id="income-val">0</span>/с</div>
+      <div class="stat-pill combo-pill" id="combo-pill">🔥 x<span id="combo-val">0</span></div>
+    </div>
+    <div class="energy-wrap">
+      <div class="energy-bar-bg"><div class="energy-bar-fill" id="energy-fill"></div></div>
+      <div class="energy-label"><span id="energy-val">50</span>/<span id="energy-max">50</span> энергии — держи кристалл дольше для мощного удара (тратит больше энергии)</div>
+    </div>
+
+    <div class="click-zone" id="click-zone">
+      <div class="golden-banner" id="golden-banner">🌟 ЗОЛОТАЯ ЛИХОРАДКА! 🌟</div>
+      <div id="particle-layer"></div>
+      <div id="orb-layer"></div>
+      <div class="charge-ring" id="charge-ring"></div>
+      <div class="gem" id="gem"></div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="upgrades">⛏️ Улучшения</button>
+      <button class="tab-btn" data-tab="prestige">🔁 Престиж</button>
+      <button class="tab-btn" data-tab="achievements">🏆 Награды</button>
+    </div>
+    <div class="panel-wrap" id="panel-wrap"></div>
+  </div>
+
+  <div id="screen-gameover" class="screen">
+    <div class="go-title">⚡ ЭНЕРГИЯ КОНЧИЛАСЬ</div>
+    <div class="go-box">
+      <div class="go-row"><span>Заработано за сессию:</span><b id="go-session">0</b></div>
+      <div class="go-row record"><span>Рекорд сессии:</span><b id="go-record">0</b></div>
+    </div>
+    <div class="new-record" id="new-record-badge" style="display:none;">🎉 НОВЫЙ РЕКОРД! 🎉</div>
+    <button class="neon-btn pink" id="btn-restart">🔁 ИГРАТЬ СНОВА</button>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  const SAVE_KEY = "neonMinerSave_v2";
+
+  function defaultState(){
+    return {
+      coins:0, clickLvl:0, autoLvl:0, energyLvl:0, regenLvl:0,
+      bestSession:0, totalClicks:0, totalCoinsEarned:0, maxCombo:0,
+      goldenCaught:0, prestigePoints:0, achievementsUnlocked:[]
+    };
+  }
+  function loadState(){
+    try{
+      const raw = localStorage.getItem(SAVE_KEY);
+      if(!raw) return defaultState();
+      return Object.assign(defaultState(), JSON.parse(raw));
+    }catch(e){ return defaultState(); }
+  }
+  function saveState(){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify(state)); }catch(e){} }
+  let state = loadState();
+
+  /* ---------------- UPGRADES ---------------- */
+  const upgrades = [
+    {id:"click", icon:"⛏️", name:"Кирка", desc:"+1 монета за клик", levelKey:"clickLvl", baseCost:10, growth:1.15},
+    {id:"auto", icon:"🤖", name:"Автобур", desc:"+1 монета/сек", levelKey:"autoLvl", baseCost:50, growth:1.17},
+    {id:"energy", icon:"🔋", name:"Батарея", desc:"+10 макс. энергии", levelKey:"energyLvl", baseCost:30, growth:1.16},
+    {id:"regen", icon:"♻️", name:"Регенератор", desc:"+0.5 энергии/сек", levelKey:"regenLvl", baseCost:40, growth:1.18}
+  ];
+  function getCost(u){ return Math.ceil(u.baseCost * Math.pow(u.growth, state[u.levelKey])); }
+  function getClickPower(){ return 1 + state.clickLvl; }
+  function getAutoIncome(){ return state.autoLvl; }
+  function getMaxEnergy(){ return 50 + state.energyLvl*10; }
+  function getRegenRate(){ return 1 + state.regenLvl*0.5; }
+
+  /* ---------------- ACHIEVEMENTS ---------------- */
+  const ACHIEVEMENTS = [
+    {id:"first_click", icon:"👆", name:"Первый шаг", desc:"Сделай первый клик", coinReward:10, bonus:0, check:s=>s.totalClicks>=1},
+    {id:"clicks_100", icon:"🖱️", name:"Кликер-новичок", desc:"100 кликов за всё время", coinReward:50, bonus:0.01, check:s=>s.totalClicks>=100},
+    {id:"clicks_1000", icon:"⚡", name:"Кликер-мастер", desc:"1000 кликов за всё время", coinReward:300, bonus:0.02, check:s=>s.totalClicks>=1000},
+    {id:"coins_100", icon:"💰", name:"Первая сотня", desc:"Заработай 100 монет за всё время", coinReward:0, bonus:0.01, check:s=>s.totalCoinsEarned>=100},
+    {id:"coins_10000", icon:"💎", name:"Богач", desc:"Заработай 10 000 монет", coinReward:0, bonus:0.03, check:s=>s.totalCoinsEarned>=10000},
+    {id:"coins_1000000", icon:"👑", name:"Магнат", desc:"Заработай 1 000 000 монет", coinReward:0, bonus:0.05, check:s=>s.totalCoinsEarned>=1000000},
+    {id:"combo_10", icon:"🔥", name:"В ударе", desc:"Достигни комбо x10", coinReward:100, bonus:0.02, check:s=>s.maxCombo>=10},
+    {id:"combo_25", icon:"🌟", name:"Неудержимый", desc:"Достигни комбо x25", coinReward:500, bonus:0.03, check:s=>s.maxCombo>=25},
+    {id:"golden_5", icon:"✨", name:"Охотник за золотом", desc:"Поймай золотую лихорадку 5 раз", coinReward:200, bonus:0.02, check:s=>s.goldenCaught>=5},
+    {id:"prestige_1", icon:"🔁", name:"Перерождение", desc:"Соверши первый престиж", coinReward:0, bonus:0.05, check:s=>s.prestigePoints>=1}
+  ];
+  function getAchBonus(){
+    return state.achievementsUnlocked.reduce((sum,id)=>{
+      const a = ACHIEVEMENTS.find(x=>x.id===id);
+      return sum + (a && a.bonus ? a.bonus : 0);
+    },0);
+  }
+  function checkAchievements(){
+    ACHIEVEMENTS.forEach(a=>{
+      if(!state.achievementsUnlocked.includes(a.id) && a.check(state)){
+        state.achievementsUnlocked.push(a.id);
+        if(a.coinReward>0){ state.coins += a.coinReward; state.totalCoinsEarned += a.coinReward; sessionEarned += a.coinReward; }
+        showToast("🏆 Достижение: " + a.name + (a.coinReward>0 ? " (+"+a.coinReward+"💰)" : ""));
+        saveState();
+      }
+    });
+  }
+
+  /* ---------------- PRESTIGE ---------------- */
+  function prestigeThreshold(){ return 5000 * Math.pow(2, state.prestigePoints); }
+  function getPrestigeMultiplier(){ return 1 + state.prestigePoints*0.1; }
+  function canPrestige(){ return state.totalCoinsEarned >= prestigeThreshold(); }
+  function doPrestige(){
+    if(!canPrestige()) return;
+    const gain = Math.max(1, Math.floor(state.totalCoinsEarned / prestigeThreshold()));
+    state.prestigePoints += gain;
+    state.coins = 0; state.clickLvl=0; state.autoLvl=0; state.energyLvl=0; state.regenLvl=0;
+    saveState();
+    checkAchievements();
+    showToast("🔁 Перерождение! +" + gain + " очков престижа");
+    energy = getMaxEnergy();
+    renderTopStats(); renderActiveTab();
+  }
+
+  /* ---------------- COMBO ---------------- */
+  let comboCount = 0;
+  let lastClickTime = 0;
+  const COMBO_WINDOW = 1100;
+  function getComboMultiplier(){ return Math.min(1 + comboCount*0.05, 3); }
+  function registerClick(now){
+    if(now - lastClickTime <= COMBO_WINDOW){ comboCount++; } else { comboCount = 1; }
+    lastClickTime = now;
+    state.maxCombo = Math.max(state.maxCombo, comboCount);
+  }
+  function idleComboCheck(now){
+    if(comboCount>0 && now - lastClickTime > COMBO_WINDOW*1.4) comboCount = 0;
+  }
+
+  /* ---------------- GOLDEN EVENT ---------------- */
+  let isGolden = false;
+  let goldenClickedThisEvent = false;
+  let goldenTimeoutId = null, goldenScheduleId = null;
+
+  function scheduleGoldenEvent(){
+    const delay = 40000 + Math.random()*25000;
+    goldenScheduleId = setTimeout(()=>{
+      if(!sessionActive) return;
+      startGoldenEvent();
+    }, delay);
+  }
+  function startGoldenEvent(){
+    isGolden = true; goldenClickedThisEvent = false;
+    gem.classList.add("golden");
+    goldenBanner.classList.add("show");
+    goldenTimeoutId = setTimeout(endGoldenEvent, 8000);
+  }
+  function endGoldenEvent(){
+    isGolden = false;
+    gem.classList.remove("golden");
+    goldenBanner.classList.remove("show");
+    if(goldenClickedThisEvent){ state.goldenCaught++; checkAchievements(); saveState(); }
+    if(sessionActive) scheduleGoldenEvent();
+  }
+
+  /* ---------------- ORBS ---------------- */
+  let orbScheduleId = null;
+  function scheduleOrbSpawn(){
+    const delay = 2500 + Math.random()*3000;
+    orbScheduleId = setTimeout(()=>{
+      if(!sessionActive) return;
+      spawnOrb(Math.random() < 0.72 ? "bonus" : "bomb");
+      scheduleOrbSpawn();
+    }, delay);
+  }
+  function spawnOrb(type){
+    const rect = clickZone.getBoundingClientRect();
+    const margin = 40;
+    const x = margin + Math.random() * Math.max(10, rect.width - margin*2);
+    const y = margin + Math.random() * Math.max(10, rect.height - margin*2);
+    const orb = document.createElement("div");
+    orb.className = "orb " + type;
+    orb.textContent = type === "bonus" ? "⭐" : "💣";
+    orb.style.left = x + "px";
+    orb.style.top = y + "px";
+    orbLayer.appendChild(orb);
+    let handled = false;
+    const lifespan = type === "bonus" ? 1700 : 2100;
+    const removeTimer = setTimeout(()=>{ fadeAndRemove(orb); }, lifespan);
+    orb.addEventListener("pointerdown", (e)=>{
+      e.stopPropagation();
+      if(handled) return; handled = true;
+      clearTimeout(removeTimer);
+      const orbRect = orb.getBoundingClientRect();
+      const cx = orbRect.left - rect.left + orbRect.width/2;
+      const cy = orbRect.top - rect.top + orbRect.height/2;
+      if(type === "bonus"){
+        const reward = Math.round((5 + getClickPower()*2) * getAchAndPrestigeMult());
+        state.coins += reward; state.totalCoinsEarned += reward; sessionEarned += reward;
+        spawnFloatText(cx, cy, "+" + formatNumber(reward), "gold");
+        spawnParticles(cx, cy, 10, ["#39ff88","#00f0ff","#ffd23f"]);
+        playTone(880, 0.14, "triangle", 0.05);
+      } else {
+        const penalty = Math.min(energy, 8);
+        energy -= penalty;
+        comboCount = 0;
+        spawnFloatText(cx, cy, "-" + penalty + "⚡", "bad");
+        spawnParticles(cx, cy, 10, ["#ff4d4d","#ff8a8a"]);
+        shakeZone();
+        playTone(120, 0.25, "sawtooth", 0.06);
+        if(energy <= 0){ triggerGameOver(); }
+      }
+      renderTopStats(); saveState(); checkAchievements();
+      fadeAndRemove(orb);
+    }, {passive:true});
+  }
+  function fadeAndRemove(orb){
+    if(!orb.isConnected) return;
+    orb.classList.add("fading");
+    setTimeout(()=>orb.remove(), 260);
+  }
+
+  /* ---------------- FORMULAS ---------------- */
+  function getAchAndPrestigeMult(){ return (1+getAchBonus()) * getPrestigeMultiplier(); }
+
+  /* ---------------- FORMAT ---------------- */
+  function formatNumber(n){
+    n = Math.floor(n);
+    if(n < 1000) return String(n);
+    const units = ["K","M","B","T","Qa","Qi","Sx","Sp"];
+    let unitIndex = -1, val = n;
+    while(val >= 1000 && unitIndex < units.length-1){ val/=1000; unitIndex++; }
+    return val.toFixed(val<10?2:1) + units[unitIndex];
+  }
+
+  /* ---------------- DOM ---------------- */
+  const screens = { start:document.getElementById("screen-start"), game:document.getElementById("screen-game"), gameover:document.getElementById("screen-gameover") };
+  const coinCountEl = document.getElementById("coin-count");
+  const clickPowerValEl = document.getElementById("click-power-val");
+  const incomeValEl = document.getElementById("income-val");
+  const comboPillEl = document.getElementById("combo-pill");
+  const comboValEl = document.getElementById("combo-val");
+  const energyFillEl = document.getElementById("energy-fill");
+  const energyValEl = document.getElementById("energy-val");
+  const energyMaxEl = document.getElementById("energy-max");
+  const gem = document.getElementById("gem");
+  const chargeRing = document.getElementById("charge-ring");
+  const particleLayer = document.getElementById("particle-layer");
+  const orbLayer = document.getElementById("orb-layer");
+  const clickZone = document.getElementById("click-zone");
+  const goldenBanner = document.getElementById("golden-banner");
+  const panelWrap = document.getElementById("panel-wrap");
+  const tabBtns = document.querySelectorAll(".tab-btn");
+  const goSessionEl = document.getElementById("go-session");
+  const goRecordEl = document.getElementById("go-record");
+  const newRecordBadge = document.getElementById("new-record-badge");
+  const toastEl = document.getElementById("toast");
+
+  function showScreen(name){ Object.values(screens).forEach(s=>s.classList.remove("active")); screens[name].classList.add("active"); }
+
+  let toastTimer = null;
+  function showToast(msg){
+    clearTimeout(toastTimer);
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    toastTimer = setTimeout(()=>toastEl.classList.remove("show"), 2600);
+  }
+  function shakeZone(){
+    clickZone.classList.remove("shake"); void clickZone.offsetWidth;
+    clickZone.classList.add("shake");
+  }
+
+  /* ---------------- AUDIO ---------------- */
+  let actx = null;
+  function ensureAudio(){ if(!actx){ try{ actx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } }
+  function playTone(freq, duration, type, vol){
+    if(!actx) return;
+    const osc = actx.createOscillator(); const gain = actx.createGain();
+    osc.type = type||"sine"; osc.frequency.value = freq; gain.gain.value = vol||0.06;
+    osc.connect(gain); gain.connect(actx.destination); osc.start();
+    gain.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + duration);
+    osc.stop(actx.currentTime + duration);
+  }
+
+  /* ---------------- RENDER ---------------- */
+  function renderTopStats(){
+    coinCountEl.textContent = formatNumber(state.coins);
+    clickPowerValEl.textContent = formatNumber(getClickPower());
+    incomeValEl.textContent = formatNumber(getAutoIncome());
+    const maxE = getMaxEnergy();
+    energyMaxEl.textContent = maxE;
+    energyValEl.textContent = Math.floor(Math.max(0,energy));
+    energyFillEl.style.width = Math.max(0,(energy/maxE*100)) + "%";
+    comboValEl.textContent = comboCount;
+    comboPillEl.classList.toggle("active", comboCount > 1);
+  }
+
+  let activeTab = "upgrades";
+  function switchTab(tab){ activeTab = tab; tabBtns.forEach(b=>b.classList.toggle("active", b.dataset.tab===tab)); renderActiveTab(); }
+  tabBtns.forEach(b=>b.addEventListener("click", ()=>switchTab(b.dataset.tab)));
+
+  function renderActiveTab(){
+    if(activeTab==="upgrades") renderUpgradesTab();
+    else if(activeTab==="prestige") renderPrestigeTab();
+    else renderAchievementsTab();
+  }
+
+  function renderUpgradesTab(){
+    const grid = document.createElement("div");
+    grid.className = "upgrades-grid";
+    upgrades.forEach(u=>{
+      const cost = getCost(u);
+      const affordable = state.coins >= cost;
+      const card = document.createElement("div");
+      card.className = "upg-card" + (affordable ? " affordable" : "");
+      card.innerHTML =
+        '<div class="upg-title"><span>'+u.icon+' '+u.name+'</span><span class="upg-lvl">Lv.'+state[u.levelKey]+'</span></div>' +
+        '<div class="upg-desc">'+u.desc+'</div>' +
+        '<div class="upg-cost'+(affordable?'':' cant')+'">💰 '+formatNumber(cost)+'</div>';
+      card.addEventListener("click", ()=>buyUpgrade(u));
+      grid.appendChild(card);
+    });
+    panelWrap.innerHTML = ""; panelWrap.appendChild(grid);
+  }
+
+  function buyUpgrade(u){
+    const cost = getCost(u);
+    if(state.coins < cost) return;
+    state.coins -= cost; state[u.levelKey] += 1;
+    saveState(); playTone(760,0.18,"square",0.05);
+    renderTopStats(); renderUpgradesTab();
+  }
+
+  function renderPrestigeTab(){
+    const box = document.createElement("div");
+    box.className = "prestige-box";
+    const threshold = prestigeThreshold();
+    const progress = Math.min(100, state.totalCoinsEarned/threshold*100);
+    const able = canPrestige();
+    box.innerHTML =
+      '<div class="prestige-row"><span>Очки престижа:</span><b>'+state.prestigePoints+'</b></div>' +
+      '<div class="prestige-row"><span>Множитель дохода:</span><b>x'+getPrestigeMultiplier().toFixed(2)+'</b></div>' +
+      '<div class="prestige-row"><span>Заработано за всё время:</span><b>'+formatNumber(state.totalCoinsEarned)+'</b></div>' +
+      '<div class="prestige-row"><span>Нужно для перерождения:</span><b>'+formatNumber(threshold)+'</b></div>' +
+      '<div class="prestige-bar-bg"><div class="prestige-bar-fill" style="width:'+progress+'%"></div></div>' +
+      '<div style="font-size:11px;color:#93a3cc;margin-bottom:10px;">Перерождение сбросит монеты и улучшения, но навсегда увеличит множитель дохода.</div>';
+    const btn = document.createElement("button");
+    btn.className = "neon-btn pink";
+    btn.style.width = "100%";
+    btn.style.padding = "12px";
+    btn.style.fontSize = "14px";
+    btn.textContent = able ? "🔁 ПЕРЕРОДИТЬСЯ" : "🔒 Недостаточно опыта";
+    btn.disabled = !able;
+    btn.addEventListener("click", doPrestige);
+    box.appendChild(btn);
+    panelWrap.innerHTML = ""; panelWrap.appendChild(box);
+  }
+
+  function renderAchievementsTab(){
+    const grid = document.createElement("div");
+    grid.className = "ach-grid";
+    ACHIEVEMENTS.forEach(a=>{
+      const unlocked = state.achievementsUnlocked.includes(a.id);
+      const card = document.createElement("div");
+      card.className = "ach-card" + (unlocked ? " unlocked" : "");
+      card.innerHTML =
+        '<div class="ach-icon">'+(unlocked ? a.icon : "🔒")+'</div>' +
+        '<div><div class="ach-name">'+a.name+'</div><div class="ach-desc">'+a.desc+'</div></div>';
+      grid.appendChild(card);
+    });
+    panelWrap.innerHTML = ""; panelWrap.appendChild(grid);
+  }
+
+  /* ---------------- EFFECTS ---------------- */
+  function spawnFloatText(x,y,text,variant){
+    const el = document.createElement("div");
+    el.className = "float-text" + (variant ? " "+variant : "");
+    el.style.left = x+"px"; el.style.top = y+"px";
+    el.textContent = text.startsWith("-") ? text : "+"+text;
+    particleLayer.appendChild(el);
+    setTimeout(()=>el.remove(), 950);
+  }
+  const particleColorsDefault = ["#00f0ff","#ff2e97","#a855f7","#ffd23f","#39ff88"];
+  function spawnParticles(x,y,count,colors){
+    count = count||8; colors = colors||particleColorsDefault;
+    for(let i=0;i<count;i++){
+      const p = document.createElement("div");
+      p.className = "particle";
+      const angle = Math.random()*Math.PI*2;
+      const dist = 40 + Math.random()*50;
+      const dx = Math.cos(angle)*dist, dy = Math.sin(angle)*dist;
+      p.style.left = x+"px"; p.style.top = y+"px";
+      p.style.background = colors[Math.floor(Math.random()*colors.length)];
+      p.style.setProperty("--dest", "translate("+dx+"px,"+dy+"px)");
+      particleLayer.appendChild(p);
+      setTimeout(()=>p.remove(), 720);
+    }
+  }
+
+  /* ---------------- CHARGE & CLICK MECHANIC ---------------- */
+  const MAX_CHARGE_MS = 1400;
+  let isCharging = false;
+  let chargeStart = 0;
+  let chargeRAF = null;
+
+  function chargeLoopFrame(){
+    if(!isCharging) return;
+    const now = performance.now();
+    const ratio = Math.min((now - chargeStart)/MAX_CHARGE_MS, 1);
+    chargeRing.style.opacity = String(0.2 + ratio*0.8);
+    chargeRing.style.transform = "scale(" + (1 + ratio*0.35) + ")";
+    gem.style.filter = "brightness(" + (1 + ratio*0.5) + ")";
+    chargeRAF = requestAnimationFrame(chargeLoopFrame);
+  }
+
+  function onGemDown(evt){
+    if(energy <= 0 || !sessionActive) return;
+    ensureAudio();
+    evt.preventDefault();
+    isCharging = true;
+    chargeStart = performance.now();
+    chargeRing.style.opacity = "0.2";
+    chargeRAF = requestAnimationFrame(chargeLoopFrame);
+    try{ gem.setPointerCapture(evt.pointerId); }catch(e){}
+  }
+
+  function onGemUp(evt){
+    if(!isCharging) return;
+    isCharging = false;
+    cancelAnimationFrame(chargeRAF);
+    chargeRing.style.opacity = "0";
+    chargeRing.style.transform = "scale(1)";
+    gem.style.filter = "brightness(1)";
+
+    const now = performance.now();
+    const ratio = Math.min((now - chargeStart)/MAX_CHARGE_MS, 1);
+    const cost = Math.max(1, Math.round(ratio*5));
+    const actualCost = Math.min(cost, Math.max(1, energy));
+    const actualRatio = actualCost/5;
+
+    registerClick(now);
+    state.totalClicks++;
+
+    const base = getClickPower();
+    const chargeMult = 1 + actualRatio*4;
+    const comboMult = getComboMultiplier();
+    const isCrit = Math.random() < 0.08;
+    const critMult = isCrit ? 3 : 1;
+    const goldenMult = isGolden ? 8 : 1;
+    const permMult = getAchAndPrestigeMult();
+    const reward = base*chargeMult*comboMult*critMult*goldenMult*permMult;
+
+    state.coins += reward;
+    state.totalCoinsEarned += reward;
+    sessionEarned += reward;
+    energy = Math.max(0, energy - actualCost);
+    if(isGolden) goldenClickedThisEvent = true;
+
+    const rect = clickZone.getBoundingClientRect();
+    const gx = rect.width/2, gy = rect.height/2;
+    let variant = null;
+    if(isGolden) variant = "gold"; else if(isCrit) variant = "crit";
+    spawnFloatText(gx, gy - 40, (isCrit ? "КРИТ! " : "") + formatNumber(reward), variant);
+    spawnParticles(gx, gy, 8 + Math.round(actualRatio*10), isGolden ? ["#ffd23f","#fff2a8","#ff9d00"] : particleColorsDefault);
+    playTone(480 + actualRatio*300 + Math.random()*40, 0.12 + actualRatio*0.1, "triangle", 0.05 + actualRatio*0.03);
+
+    renderTopStats();
+    renderActiveTab();
+    checkAchievements();
+
+    if(energy <= 0){ triggerGameOver(); }
+  }
+
+  gem.addEventListener("pointerdown", onGemDown);
+  gem.addEventListener("pointerup", onGemUp);
+  gem.addEventListener("pointercancel", onGemUp);
+  gem.addEventListener("pointerleave", (e)=>{ if(isCharging) onGemUp(e); });
+
+  /* ---------------- SESSION / LOOP ---------------- */
+  let energy = getMaxEnergy();
+  let sessionEarned = 0;
+  let regenAccumulator = 0;
+  let sessionActive = false;
+  let rafHandle = null;
+  let lastTick = performance.now();
+  let uiSaveInterval = null;
+
+  function gameLoop(now){
+    const dt = (now - lastTick)/1000;
+    lastTick = now;
+
+    const income = getAutoIncome() * getAchAndPrestigeMult();
+    if(income > 0){ const g = income*dt; state.coins += g; state.totalCoinsEarned += g; sessionEarned += g; }
+
+    if(energy < getMaxEnergy()){
+      regenAccumulator += getRegenRate()*dt;
+      if(regenAccumulator >= 1){
+        const whole = Math.floor(regenAccumulator);
+        energy = Math.min(getMaxEnergy(), energy+whole);
+        regenAccumulator -= whole;
+      }
+    }
+    idleComboCheck(now);
+    renderTopStats();
+    rafHandle = requestAnimationFrame(gameLoop);
+  }
+
+  function triggerGameOver(){
+    sessionActive = false;
+    cancelAnimationFrame(rafHandle);
+    clearTimeout(orbScheduleId);
+    clearTimeout(goldenScheduleId);
+    clearTimeout(goldenTimeoutId);
+    clearInterval(uiSaveInterval);
+    isGolden = false; gem.classList.remove("golden"); goldenBanner.classList.remove("show");
+    document.querySelectorAll(".orb").forEach(o=>o.remove());
+    saveState();
+    playTone(180,0.4,"sawtooth",0.06);
+
+    const earnedInt = Math.floor(sessionEarned);
+    let isNewRecord = false;
+    if(earnedInt > state.bestSession){ state.bestSession = earnedInt; isNewRecord = true; saveState(); }
+
+    goSessionEl.textContent = formatNumber(earnedInt);
+    goRecordEl.textContent = formatNumber(state.bestSession);
+    newRecordBadge.style.display = isNewRecord ? "block" : "none";
+    showScreen("gameover");
+  }
+
+  function startSession(){
+    energy = getMaxEnergy();
+    sessionEarned = 0;
+    regenAccumulator = 0;
+    comboCount = 0; lastClickTime = 0;
+    sessionActive = true;
+    lastTick = performance.now();
+    renderTopStats();
+    switchTab("upgrades");
+    showScreen("game");
+    uiSaveInterval = setInterval(saveState, 4000);
+    rafHandle = requestAnimationFrame(gameLoop);
+    scheduleOrbSpawn();
+    scheduleGoldenEvent();
+  }
+
+  /* ---------------- BUTTONS ---------------- */
+  document.getElementById("btn-play").addEventListener("click", ()=>{ ensureAudio(); startSession(); });
+  document.getElementById("btn-restart").addEventListener("click", startSession);
+  document.getElementById("btn-hard-reset").addEventListener("click", ()=>{
+    if(confirm("Точно сбросить весь прогресс? Это действие необратимо.")){
+      localStorage.removeItem(SAVE_KEY);
+      state = defaultState();
+      saveState();
+    }
+  });
+
+  /* ---------------- INIT ---------------- */
+  renderTopStats();
+  showScreen("start");
+
+})();
+</script>
+</body>
+</html>
